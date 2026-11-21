@@ -1,0 +1,192 @@
+# ============================================================
+# SarcasTone Member 3 — Fusion Model Configuration
+# All dimensions must stay in sync with shared/constants.py
+# ============================================================
+
+project:
+  name: "SarcasTone-Fusion"
+  version: "1.1.0"
+  seed: 42
+
+# ------------------------------------------------------------------ #
+# Upstream module interface dimensions (read-only; set by members 1/2)
+# ------------------------------------------------------------------ #
+interface:
+  text_hidden: 768          # SpanPoolingModel utterance pool dim
+  audio_hidden: 768         # Wav2Vec2 last_hidden_state dim
+  context_hidden: 768       # SpanPoolingModel context pool dim
+  prosody_dim: 32           # shared.constants.PROSODY_DIM
+  quality_dim: 6            # shared.constants.QUALITY_DIM
+  fusion_logits: 2          # binary sarcasm
+  acoustic_feature_dim: 116 # member2 handoff CSV feature count (determined at runtime)
+  # Path to member1 checkpoint for live text encoding (optional)
+  member1_checkpoint: "member1_text/outputs/checkpoints/mustard__sarcasm__roberta-base"
+
+# ------------------------------------------------------------------ #
+# Fusion model hyper-parameters
+# ------------------------------------------------------------------ #
+model:
+  fusion_hidden: 512         # internal fusion width
+  cross_attn_heads: 8        # multi-head attention heads
+  cross_attn_layers: 2       # stacked cross-attention blocks
+  dropout: 0.3
+  classifier_hidden: 256     # classification head hidden
+  num_labels: 2
+
+  # Fusion strategy — one of: early | late | concat | cross_attention
+  fusion_strategy: "cross_attention"
+
+  # Prosody-Semantic Incongruence Detection (PSID)
+  psid_enabled: true
+  psid_proj_dim: 128         # shared incongruence projection space
+  psid_disagreement_dim: 128 # output disagreement vector dim
+
+  # Confidence-gated fusion
+  gating_enabled: true
+
+  # Context representation
+  context_enabled: true
+  context_pool: "mean"       # mean | max | cls
+
+  # Temperature scaling (uncertainty calibration)
+  temperature_init: 1.0
+
+  # Modality availability flags — overridden by experiment blocks below
+  text_available: true
+  audio_available: true
+
+# ------------------------------------------------------------------ #
+# Training hyper-parameters
+# ------------------------------------------------------------------ #
+training:
+  epochs: 30
+  batch_size: 16
+  learning_rate: 2.0e-4
+  encoder_lr: 1.0e-5          # lower LR for frozen-then-thawed encoders
+  weight_decay: 1.0e-2
+  gradient_clip: 1.0
+  warmup_ratio: 0.1            # fraction of steps for linear warmup
+  early_stopping_patience: 5
+  early_stopping_metric: "macro_f1"
+  mixed_precision: false        # set true when CUDA available
+  label_smoothing: 0.05
+
+  # Encoder fine-tuning schedule (progressive thawing)
+  freeze_encoders_epochs: 5    # keep both encoders frozen for first N epochs
+  unfreeze_text_epoch: 5       # thaw text encoder from this epoch
+  unfreeze_audio_epoch: 10     # thaw audio projection from this epoch
+
+  # Class imbalance
+  use_class_weights: true
+
+  # Checkpoint behaviour
+  resume_from: null             # path to resume; null = start fresh
+  save_best_only: true
+  checkpoint_metric: "macro_f1"
+
+# ------------------------------------------------------------------ #
+# Data
+# ------------------------------------------------------------------ #
+data:
+  # MUStARD (primary)
+  mustard_json: "datasets/MUSTARD/sarcasm_data.json"
+
+  # MUStARD++ (optional extension — set to null to disable)
+  mustard_pp_csv: "datasets/MUSTARD_PP/mustard++_text.csv"
+
+  # member2 audio handoff outputs
+  audio_handoff_csv: "member2_audio/outputs/handoff/mustard_audio_handoff.csv"
+  audio_predictions_csv: "member2_audio/outputs/handoff/mustard_audio_predictions.csv"
+  audio_quality_csv: "member2_audio/outputs/handoff/mustard_audio_quality.csv"
+  frame_manifest_csv: "member2_audio/outputs/handoff/mustard_frame_embedding_manifest.csv"
+
+  # Wav2Vec2 pooled embeddings (produced by member2)
+  # Set to null to disable and fall back to handoff-CSV columns
+  wav2vec2_embeddings_npz: "member2_audio/outputs/handoff/mustard_wav2vec2_embeddings.npz"
+  frame_embeddings_npz: null       # e.g. "E:/SarcasTone_Embeddings/mustard_frame_embeddings.npz"
+
+  # Cached member1 text embeddings (.npz) — produced by member1 pre-extraction
+  # Keys expected: 'utterance_ids' [N], 'embeddings' [N, 768]
+  text_embeddings_npz: "member1_text/outputs/handoff/mustard_text_embeddings.npz"
+
+  # Splits
+  val_ratio: 0.15
+  test_ratio: 0.15
+  split_strategy: "speaker"   # speaker | stratified
+  dedup_mustard_family: true  # remove MUStARD rows that appear in MUStARD++
+
+# ------------------------------------------------------------------ #
+# Experiment variants (ablation)
+# NOTE: each block is MERGED ON TOP OF the base config (including model:).
+#       All keys here override the base. Experiment flags are placed
+#       inside the ``model:`` sub-dict so build_fusion_model picks them up.
+# ------------------------------------------------------------------ #
+experiments:
+  text_only:
+    model:
+      audio_available: false
+      psid_enabled: false
+      gating_enabled: false
+      fusion_strategy: "cross_attention"
+
+  audio_only:
+    model:
+      text_available: false
+      psid_enabled: false
+      gating_enabled: false
+      fusion_strategy: "cross_attention"
+
+  early_fusion:
+    model:
+      fusion_strategy: "early"
+      psid_enabled: false
+      gating_enabled: false
+
+  late_fusion:
+    model:
+      fusion_strategy: "late"
+      psid_enabled: false
+      gating_enabled: false
+
+  concat_fusion:
+    model:
+      fusion_strategy: "concat"
+      psid_enabled: false
+      gating_enabled: false
+
+  cross_attn:
+    model:
+      fusion_strategy: "cross_attention"
+      psid_enabled: false
+      gating_enabled: false
+
+  cross_attn_psid:
+    model:
+      fusion_strategy: "cross_attention"
+      psid_enabled: true
+      gating_enabled: false
+
+  full_model:
+    model:
+      fusion_strategy: "cross_attention"
+      psid_enabled: true
+      gating_enabled: true
+
+# ------------------------------------------------------------------ #
+# Output paths
+# ------------------------------------------------------------------ #
+output:
+  checkpoint_dir: "member3_fusion/checkpoints"
+  experiments_dir: "member3_fusion/experiments"
+  metrics_dir: "member3_fusion/outputs/metrics"
+  plots_dir: "member3_fusion/outputs/plots"
+  ablation_dir: "member3_fusion/outputs/ablation"
+  tensorboard_dir: "member3_fusion/outputs/runs"
+
+# ------------------------------------------------------------------ #
+# Logging
+# ------------------------------------------------------------------ #
+logging:
+  level: "INFO"
+  log_every_n_steps: 10
+  save_predictions: true

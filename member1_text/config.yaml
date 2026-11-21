@@ -1,0 +1,129 @@
+# Defaults for Member 1 text NLP and ASR.
+# Five-fold numbers are validation estimates. They are stored apart from
+# any independent test file. The deployment checkpoint is a full-data refit.
+
+project:
+  name: member1_text
+  python: "3.11"
+  seed: 42
+
+model:
+  primary: roberta-base
+  optional_comparison: microsoft/deberta-v3-base
+  hidden_size: 768
+  num_layers: 12
+  encoder_dropout: 0.1
+  head_dropout: 0.1
+  max_length: 256
+  max_length_choices: [256, 512]
+  # [target_pool; context_pool; target_pool - context_pool; has_context]
+  fused_input_dim: 2305
+  binary_num_labels: 2
+  baselines:
+    tfidf_logreg: tfidf_word_char_logreg
+    minilm: sentence-transformers/all-MiniLM-L6-v2
+    minilm_dim: 384
+
+training:
+  optimizer: adamw
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.06
+  batch_size_gpu: 16
+  batch_size_cpu: 4
+  max_epochs: 6
+  gradient_clip_norm: 1.0
+  early_stopping_patience: 2
+  classification_selection_metric: macro_f1
+  regression_selection_metric: mse
+  class_weights: inverse_frequency_on_training_split_only
+  mlflow_tracking_uri: member1_text/outputs/mlruns
+  primary:
+    dataset: mustard
+    task: sarcasm
+    model: roberta-base
+    split: stratified_5fold
+
+evaluation:
+  # Cross-validation metrics and independent test metrics use different files.
+  cv_role: cross_validation_validation
+  cv_is_independent_test: false
+  best_fold_reported_as_test: false
+  independent_test_requires_unused_split: true
+  classification_metrics: [accuracy, precision, recall, macro_f1, weighted_f1]
+  binary_ranking_metrics: [roc_auc, pr_auc]
+  regression_metrics: [mse, mae]
+  files:
+    cross_validation: cv_validation.json
+    independent_test: independent_test.json
+    speaker_grouped: speaker_grouped.json
+    train_holdout: train_holdout.json
+    deployment_refit: deployment_refit.json
+
+deployment:
+  # MUStARD has no official test split. Do not copy the best validation fold
+  # into the deployment directory or attach that fold's score as a test score.
+  strategy: full_data_refit_after_stratified_5fold
+  epoch_rule: median_of_per_fold_best_epochs
+  refit_on: all_labeled_examples
+  early_stopping_during_refit: false
+  copy_best_fold_weights: false
+  attach_independent_test_metric: false
+  checkpoint_pattern: "{dataset}__{task}__{model}"
+
+asr:
+  implementation: faster-whisper
+  model: small
+  language: en
+  beam_size: 5
+  cuda_compute_type: float16
+  cpu_compute_type: int8
+  sample_rate_hz: 16000
+  channels: 1
+  default_training_text_source: gold
+
+device:
+  env_override: MEMBER1_DEVICE
+  prefer: cuda_if_available
+
+datasets:
+  mustard:
+    role: primary
+    source_url: https://github.com/soujanyaporia/MUStARD
+    text_relative_path: data/sarcasm_data.json
+    video_source_url: https://huggingface.co/datasets/MichiganNLP/MUStARD
+    video_archive: mmsd_raw_data.zip
+    utterance_clip_pattern: utterances_final/<id>.mp4
+    license: MIT
+    local_text_path: member1_text/data/mustard/sarcasm_data.json
+    official_split_pickle: data/split_indices.p
+    label_field: sarcasm
+    label_meaning: sarcasm
+    splits: [stratified_5fold, speaker_grouped, official_pickle_if_unpickleable]
+  mustard_pp:
+    role: access_gated
+    source_url: https://github.com/cfiltnlp/MUStARD_Plus_Plus
+    local_text_path: member1_text/data/mustard_pp/mustard++_text.csv
+    license_note: GitHub repository publishes no license file. Research release. Do not scrape Google Drive.
+    sarcasm_label_meaning: sarcasm
+    explicit_emotion_label_meaning: explicit_emotion
+  sarc:
+    role: auxiliary_text
+    source_url: https://nlp.cs.princeton.edu/old/SARC/2.0/
+    license_note: Citation required. No SPDX license on the corpus. Do not use a third-party Hugging Face mirror.
+    local_dir: member1_text/data/sarc/main
+    train_file: train-balanced.csv.bz2
+    test_file: test-balanced.csv.bz2
+    comments_file: comments.json.bz2
+    split: official_balanced
+    reshuffle: false
+  semeval2018:
+    role: irony_benchmark
+    license: CC BY-NC-SA 4.0
+    license_note: Academic use. Tweet text is not committed and the task repository is not cloned.
+    local_dir: member1_text/data/semeval2018
+    task_a_train: SemEval2018-T3-train-taskA.txt
+    task_b_train: SemEval2018-T3-train-taskB.txt
+    reject_irony_hashtag_files: true
+    task_a_label_meaning: irony
+    task_b_label_meaning: irony_type

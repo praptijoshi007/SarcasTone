@@ -1,0 +1,19 @@
+project_name: SarcasTone
+seed: 42
+python: "3.11"
+framework: pytorch
+primary_datasets:
+  - mustard
+  - mustard++
+auxiliary_text_datasets:
+  - sarc
+  - semeval2018_task3
+auxiliary_audio_datasets:
+  - ravdess
+  - crema_d
+auxiliary_multimodal_emotion:
+  - cmu_mosei
+notes:
+  - Do not train the sarcasm head on emotion-only labels.
+  - Do not concatenate auxiliary datasets into the sarcasm test set.
+  - Video clips from MUStARD are television material. Do not redistribute them.

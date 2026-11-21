@@ -1,0 +1,6 @@
+# Optional tools. The core package runs without them and tells you when a
+# feature needs one of these libraries.
+faster-whisper>=1.0
+openai-whisper>=20231117
+mlflow>=2.12
+opensmile>=2.5

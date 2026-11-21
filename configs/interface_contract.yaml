@@ -1,0 +1,13 @@
+text_embeddings: [B, L, 768]
+audio_embeddings: [B, F, 768]
+context_embeddings: [B, C, 768]
+prosody: [B, 32]
+quality: [B, 6]
+fusion_logits: [B, 2]
+sample_rate_hz: 16000
+label_index:
+  0: non_sarcastic
+  1: sarcastic
+mask_convention: true_means_valid
+dtype: float32
+missing_modality: zero tensor, all-false mask, availability flag 0

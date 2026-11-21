@@ -1,0 +1,10 @@
+[project]
+name = "sarcastone"
+version = "0.1.0"
+description = "Research system for multimodal sarcasm detection from text and speech prosody"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

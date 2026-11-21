@@ -1,0 +1,24 @@
+# Local Python environments and bytecode
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Downloaded or generated data. Provenance JSON stays trackable so a
+# public MUStARD file hash can be committed. Do not ignore that directory.
+# SARC, SemEval, and MUStARD++ text must not be committed.
+data/
+outputs/data/
+outputs/wavs/
+outputs/audio/
+outputs/checkpoints/
+outputs/mlruns/
+outputs/plots/
+outputs/**/*.png
+outputs/**/*.pt
+outputs/**/*.safetensors
+outputs/**/*.bin

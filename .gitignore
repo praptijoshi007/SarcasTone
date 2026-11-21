@@ -1,0 +1,42 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Trained weights and generated experiment artifacts are produced locally.
+# They are never committed as if they were results.
+*.pt
+*.pth
+*.ckpt
+*.onnx
+mlruns/
+wandb/
+outputs/
+**/outputs/
+**/checkpoints/*
+!**/checkpoints/.gitkeep
+
+# Raw and derived data. Annotations may be downloaded with datasets/acquire.py.
+datasets/MUSTARD/
+datasets/MUSTARD_PP/
+datasets/SARC/
+datasets/SEMEVAL/
+datasets/MOSEI/
+datasets/emotion_datasets/
+datasets/manifests/
+*.wav
+*.mp3
+*.flac
+*.mp4
+*.mkv
+*.ogg
+*.webm
+
+.env
+*.sqlite
+*.sqlite3
+.DS_Store
+Thumbs.db
