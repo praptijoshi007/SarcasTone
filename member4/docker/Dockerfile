@@ -1,17 +1,12 @@
 # ==============================================================================
-# SarcasTone Multi-Stage Production Dockerfile
-# Serves FastAPI Backend on 8000 and Streamlit Dashboard on 8501
+# SarcasTone Backend Service Container
+# Python 3.11 with FastAPI and Multimodal Dependencies
 # ==============================================================================
-FROM python:3.11-slim AS base
-
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    MPLCONFIGDIR=/tmp/matplotlib_sarcastone
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system audio and build dependencies
+# Install system audio dependencies (libsndfile for audio processing, curl for healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libsndfile1 \
@@ -19,28 +14,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency specifications
-COPY requirements.txt requirements.txt
-COPY member4/requirements.txt member4_requirements.txt
+# Copy requirements
+COPY requirements.txt requirements-optional.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt || true && \
+    pip install --no-cache-dir fastapi uvicorn python-multipart pydantic PyYAML pandas numpy
 
-# Install python dependencies
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r member4_requirements.txt
-
-# Copy repository sources
+# Copy codebase
 COPY . .
 
-# Set PYTHONPATH to application root
-ENV PYTHONPATH="/app:/app/SarcasTone"
+# Set environment
+ENV PYTHONPATH=/app
+ENV PORT=8000
 
-# Create fixture directory
-RUN mkdir -p /tmp/matplotlib_sarcastone && chmod 777 /tmp/matplotlib_sarcastone
+EXPOSE 8000
 
-# Expose ports for FastAPI (8000) and Streamlit (8501)
-EXPOSE 8000 8501
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Entrypoint script
-COPY member4/docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-CMD ["/app/entrypoint.sh"]
+CMD ["uvicorn", "member4.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

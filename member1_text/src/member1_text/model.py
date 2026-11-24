@@ -214,10 +214,7 @@ def _load_state_dict(path: Path) -> dict[str, torch.Tensor]:
 
         return load_file(str(safetensors_path))
     if bin_path.is_file():
-        try:
-            return torch.load(bin_path, map_location="cpu", weights_only=True)
-        except Exception:
-            return torch.load(bin_path, map_location="cpu", weights_only=False)
+        return torch.load(bin_path, map_location="cpu", weights_only=True)
     raise FileNotFoundError(f"Checkpoint {path} has neither model.safetensors nor pytorch_model.bin.")
 
 
@@ -240,11 +237,7 @@ def load_span_model(path: str | Path, device: torch.device | str = "cpu") -> Spa
         max_length=int(payload.get("max_length", 256)),
         label_map=payload.get("label_map") or {},
     )
-    try:
-        model.load_state_dict(_load_state_dict(checkpoint))
-    except Exception:
-        # Checkpoint file might be a stub/placeholder; keep initialized weights
-        pass
+    model.load_state_dict(_load_state_dict(checkpoint))
     model.to(device)
     model.eval()
     return model
